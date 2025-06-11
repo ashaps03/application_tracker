@@ -52,7 +52,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### ▶Run the Flask server
+### Run the Flask server
 
 ```bash
 python main.py
