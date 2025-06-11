@@ -22,6 +22,15 @@ git clone https://github.com/ashaps03/application_tracker.git
 cd application_tracker
 ```
 
+### 🚨 Switch to your assigned branch
+
+Before making changes, switch to your designated branch:
+
+```bash
+git fetch
+git switch <your-branch-name>   # e.g., ash-dev or bella-dev
+```
+
 ---
 
 ## 🖥️ Backend Setup (Flask)
@@ -32,7 +41,7 @@ cd application_tracker
 cd server
 ```
 
-###  Create and activate virtual environment
+### Create and activate virtual environment
 
 **Mac/Linux:**
 ```bash
@@ -83,5 +92,3 @@ npm run dev
 ```
 
 > App runs on: `http://localhost:5173`
-
----
