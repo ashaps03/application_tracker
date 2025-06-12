@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import './index.css'; // ✅ correct path from within /src
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 
