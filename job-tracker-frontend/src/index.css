@@ -13,6 +13,25 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+table {
+  table-layout: auto !important;
+  width: 100% !important;
+}
+
+.left-heading {
+  text-align: left !important;
+}
+
+
+.center-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
