@@ -13,6 +13,18 @@ const columns = [
   { id: 'Offer', label: 'Offer', minWidth: 170, align: 'center' }
 ];
 
+//function applicationCount(){
+
+//}
+
+//function interviewCount(){
+    
+//}
+
+//function offerCount(){
+    
+//}
+
 function createData(Applied, Interviewing, Offer) {
   return { Applied, Interviewing, Offer };
 }
