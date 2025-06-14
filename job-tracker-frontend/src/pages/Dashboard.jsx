@@ -1,5 +1,5 @@
 import StickyHeadTable from '../components/StickyHeadTable';
-import AutoTopBoard from '../components/AutoTopBoard';
+import AutoTopBoard, { fetchCounts } from '../components/AutoTopBoard';
 
 
 export default function Dashboard() {
@@ -12,7 +12,7 @@ export default function Dashboard() {
         <div style={{ width: '80%' }}>
     <h2 className="left-heading">Recent Applications</h2>
   </div>
-        <StickyHeadTable/>
+        <StickyHeadTable onUpdateCounts={fetchCounts} />
       </div>
     );
   }

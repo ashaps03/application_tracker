@@ -8,10 +8,11 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import AddIcon from '@mui/icons-material/Add';
+import { fetchCounts } from './AutoTopBoard'; 
 
 const statusOptions = ['Applied', 'Interviewing', 'Rejected', 'Offer'];
 
-export default function StickyHeadTable() {
+export default function StickyHeadTable({ onUpdateCounts }) {
   const [rows, setRows] = useState([]);
   const [company, setCompany] = useState('');
   const [position, setPosition] = useState('');
@@ -48,11 +49,18 @@ export default function StickyHeadTable() {
         status
       });
       setRows([...rows, { id: res.data.id, company, position, status }]);
-      setCompany(''); setPosition(''); setStatus('');
-    } catch (err) {
-      console.error('Error submitting form:', err);
-    }
-  };
+    setCompany('');
+    setPosition('');
+    setStatus('');
+
+    // 👇 Trigger dashboard to update counts
+    if (onUpdateCounts) onUpdateCounts();
+
+
+  } catch (err) {
+    console.error('Error submitting form:', err);
+  }
+};
 
   const handleDelete = async (id) => {
     try {
@@ -77,11 +85,18 @@ export default function StickyHeadTable() {
   const handleRowBlur = (rowId) => {
     setTimeout(() => {
       const active = document.activeElement;
-      if (rowRefs.current[rowId] && !rowRefs.current[rowId].contains(active)) {
+  
+      // If the active element is part of a dropdown menu (Select uses a popper),
+      // ignore the blur event
+      const isDropdown = document.querySelector('[role="listbox"]')?.contains(active);
+      const rowEl = rowRefs.current[rowId];
+  
+      if (!isDropdown && rowEl && !rowEl.contains(active)) {
         setEditingRowId(null);
       }
-    }, 0);
+    }, 0); // 0ms delay is enough — ensures focus settles
   };
+  
 
   return (
     <Paper sx={{ width: '80%', margin: '0 auto', boxShadow: 3, borderRadius: 2 }}>

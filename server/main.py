@@ -52,6 +52,26 @@ def delete_application(id):
     db.session.commit()
     return jsonify(message="Deleted successfully")
 
+@app.route('/api/userApplicationData/count', methods=['GET'])
+def application_count():
+    count = UserJobData.query.count()
+    return jsonify({"count": count})
+
+@app.route('/api/userApplicationData/interviewCount', methods=['GET'])
+def get_interview_count():
+    count =UserJobData.query.filter_by(status='Interviewing').count()
+    return jsonify({"interviewCount": count})
+
+
+
+
+
+
+
+@app.route('/api/userApplicationData/offerCount', methods=['GET'])
+def get_offer_count():
+    count= UserJobData.query.filter_by(status= 'Offer').count()
+    return jsonify({"offerCount": count})
 
 
 # to update entryes automaticly when chnge on frontend
@@ -68,6 +88,7 @@ def update_application(id):
     db.session.commit()  # 🔥 Saves the updated row to your actual database (e.g. UserJobData.db)
 
     return jsonify(message="Updated successfully")
+
 
 
 @app.route("/api/users", methods=['GET'])

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -6,35 +7,52 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Typography from '@mui/material/Typography';
 
+// Columns for the table
 const columns = [
   { id: 'Applied', label: 'Applied', minWidth: 170, align: 'center' },
   { id: 'Interviewing', label: 'Interviewing', minWidth: 170, align: 'center' },
   { id: 'Offer', label: 'Offer', minWidth: 170, align: 'center' }
 ];
 
-//function applicationCount(){
+// Global state updater (populated when component mounts)
+let setters = {};
 
-//}
+// Shared function to fetch counts
+const fetchCounts = () => {
+  axios.get('http://localhost:8080/api/userApplicationData/count')
+    .then((res) => setters.setApplicationCount?.(res.data.count))
+    .catch((err) => console.error('Error fetching application count:', err));
 
-//function interviewCount(){
-    
-//}
+  axios.get('http://localhost:8080/api/userApplicationData/interviewCount')
+    .then((res) => setters.setInterviewCount?.(res.data.interviewCount))
+    .catch((err) => console.error('Error fetching interview count:', err));
 
-//function offerCount(){
-    
-//}
+  axios.get('http://localhost:8080/api/userApplicationData/offerCount')
+    .then((res) => setters.setOfferCount?.(res.data.offerCount))
+    .catch((err) => console.error('Error fetching offer count:', err));
+};
 
-function createData(Applied, Interviewing, Offer) {
-  return { Applied, Interviewing, Offer };
-}
-
-// Mock row
-const rows = [createData('4', '2', '0')];
+// ✅ Export for other components (like your form) to call it
+export { fetchCounts };
 
 export default function AutoTopBoard() {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [applicationCount, setApplicationCount] = useState(0);
+  const [interviewCount, setInterviewCount] = useState(0);
+  const [offerCount, setOfferCount] = useState(0);
+
+  useEffect(() => {
+    // Register setters to be used by fetchCounts()
+    setters = {
+      setApplicationCount,
+      setInterviewCount,
+      setOfferCount
+    };
+
+    // Fetch counts on component mount
+    fetchCounts();
+  }, []);
 
   return (
     <Paper sx={{ width: '80%', overflow: 'auto', margin: '0 auto', boxShadow: 3, borderRadius: 2 }}>
@@ -59,20 +77,17 @@ export default function AutoTopBoard() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((row, idx) => (
-                <TableRow hover tabIndex={-1} key={idx}>
-                  {columns.map((column) => {
-                    const value = row[column.id];
-                    return (
-                      <TableCell key={column.id} align={column.align || 'left'}>
-                        {value}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+            <TableRow>
+              <TableCell align="center">
+                <Typography variant="body1">{applicationCount}</Typography>
+              </TableCell>
+              <TableCell align="center">
+                <Typography variant="body1">{interviewCount}</Typography>
+              </TableCell>
+              <TableCell align="center">
+                <Typography variant="body1">{offerCount}</Typography>
+              </TableCell>
+            </TableRow>
           </TableBody>
         </Table>
       </TableContainer>
