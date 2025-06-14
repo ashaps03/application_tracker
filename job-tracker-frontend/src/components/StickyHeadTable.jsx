@@ -66,6 +66,7 @@ export default function StickyHeadTable({ onUpdateCounts }) {
     try {
       await axios.delete(`http://localhost:8080/api/userApplicationData/${id}`);
       setRows(rows.filter((r) => r.id !== id));
+      if (onUpdateCounts) onUpdateCounts();
     } catch (err) {
       console.error('Error deleting row:', err);
     }
@@ -77,6 +78,7 @@ export default function StickyHeadTable({ onUpdateCounts }) {
     setRows(updated);
     try {
       await axios.put(`http://localhost:8080/api/userApplicationData/${updated[index].id}`, updated[index]);
+      if (onUpdateCounts) onUpdateCounts();
     } catch (err) {
       console.error('Error saving edit:', err);
     }
