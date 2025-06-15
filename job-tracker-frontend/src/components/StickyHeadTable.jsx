@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+axios.defaults.withCredentials = true;
 import {
   Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TablePagination, TableRow, TextField, Select,
