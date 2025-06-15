@@ -187,7 +187,6 @@ def signout():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    name= data.get('name')
     email=data.get('email')
     password= data.get('password')
 
