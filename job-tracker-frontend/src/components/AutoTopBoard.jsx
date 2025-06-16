@@ -22,15 +22,23 @@ let setters = {};
 
 // Shared function to fetch counts
 const fetchCounts = () => {
-  axios.get('http://localhost:8080/api/userApplicationData/count')
+  const token = localStorage.getItem('token');
+  const config = {
+    headers: {
+      Authorization: token,
+    },
+    withCredentials: true,
+  };
+
+  axios.get('http://localhost:8080/api/userApplicationData/count', config)
     .then((res) => setters.setApplicationCount?.(res.data.count))
     .catch((err) => console.error('Error fetching application count:', err));
 
-  axios.get('http://localhost:8080/api/userApplicationData/interviewCount')
+  axios.get('http://localhost:8080/api/userApplicationData/interviewCount', config)
     .then((res) => setters.setInterviewCount?.(res.data.interviewCount))
     .catch((err) => console.error('Error fetching interview count:', err));
 
-  axios.get('http://localhost:8080/api/userApplicationData/offerCount')
+  axios.get('http://localhost:8080/api/userApplicationData/offerCount', config)
     .then((res) => setters.setOfferCount?.(res.data.offerCount))
     .catch((err) => console.error('Error fetching offer count:', err));
 };

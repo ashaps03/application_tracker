@@ -1,10 +1,9 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from db import db
-from model import UserJobData
+from model import UserJobData, User
 from flask import request
 from flask_login import login_user
-from model import User
 from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash
 from flask_login import logout_user
@@ -12,14 +11,22 @@ from password_validator import PasswordValidator
 from flask_login import current_user
 from dotenv import load_dotenv
 import os
+from gmailApi import run_gmail_scraper
+import firebase_admin 
+from firebase_admin import auth, credentials
+
 
 load_dotenv()
 app = Flask(__name__)
 from flask_login import LoginManager
 
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate("firebase-adminsdk.json")  # <-- your service account key JSON
+    firebase_admin.initialize_app(cred)
+    
 login_manager = LoginManager()
 login_manager.init_app(app)
-
 #userr loader
 @login_manager.user_loader
 def load_user(user_id):
@@ -40,12 +47,30 @@ with app.app_context():
     db.create_all()
 ## now need to create the isntance using the python shell by simply running this file so python3 main.py
 
+def get_firebase_uid():
+    id_token = request.headers.get('Authorization')
+    if not id_token:
+        return None
+
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        return decoded_token['uid']
+    except Exception as e:
+        print("Token verification failed:", e)
+        return None
+
 # to read exisitng entries
 @app.route('/api/userApplicationData', methods=['GET'])
 def get_applications():
-    if not current_user.is_authenticated:
-        return jsonify({"error", "Unauhorized"}), 401
-    applications = UserJobData.query.filter_by(user_id=current_user.id).all()
+    firebase_uid = get_firebase_uid()
+    if not firebase_uid:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user = User.query.filter_by(firebase_uid=firebase_uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    applications = UserJobData.query.filter_by(user_id=user.id).all()
     result = [{
         "id": app.id,
         "company": app.company,
@@ -54,17 +79,26 @@ def get_applications():
     } for app in applications]
     return jsonify(result)
 
+
 # to creaete a ne entry
 @app.route('/api/userApplicationData', methods=['POST'])
 def create_application():
-    if not current_user.is_authenticated:
-        return jsonify({"error","Unauhorized"}), 401
+    uid = get_firebase_uid()
+
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
     data = request.get_json()
     new_app = UserJobData(
         company=data['company'],
         position=data['position'],
         status=data['status'],
-        user_id=current_user.id
+        user_id=user.id,
+        firebase_uid=user.firebase_uid
     )
     db.session.add(new_app)
     db.session.commit()
@@ -73,9 +107,11 @@ def create_application():
 # to delete data 
 @app.route('/api/userApplicationData/<int:id>', methods=['DELETE'])
 def delete_application(id):
-    if not current_user.is_authenticated:
-        return jsonify({"error","Not found or unauthorized"}), 404
-    app_row = UserJobData.query.filter_by(id=id, user_id=current_user.id).first()
+    uid = get_firebase_uid()
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    app_row = UserJobData.query.filter_by(id=id, user_id=user.id).first()
     if not app_row:
         return jsonify({"error": "Not found or unauthorized"}), 404
     db.session.delete(app_row)
@@ -84,36 +120,52 @@ def delete_application(id):
 
 @app.route('/api/userApplicationData/count', methods=['GET'])
 def application_count():
-    if not current_user.is_authenticated:
-        return jsonify({"error","Unauthorized"}), 401
+    uid = get_firebase_uid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 401
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-    count = UserJobData.query.filter_by(user_id=current_user.id).count()
+    count = UserJobData.query.filter_by(user_id=user.id).count()
     return jsonify({"count": count})
 
 @app.route('/api/userApplicationData/interviewCount', methods=['GET'])
 def get_interview_count():
-    if not current_user.is_authenticated:
-        return jsonify({"error","Unauthorized"}), 401
+    uid = get_firebase_uid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-    count = UserJobData.query.filter_by(user_id=current_user.id, status='Interviewing').count()
+    count = UserJobData.query.filter_by(user_id=user.id, status='Interviewing').count()
     return jsonify({"interviewCount": count})
 
 @app.route('/api/userApplicationData/offerCount', methods=['GET'])
 def get_offer_count():
-    if not current_user.is_authenticated:
-        return jsonify({"error","Unauthorized"}), 401
+    uid = get_firebase_uid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 401
     
-    count= UserJobData.query.filter_by(user_id=current_user.id, status='Offer').count()
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    count = UserJobData.query.filter_by(user_id=user.id, status='Offer').count()
     return jsonify({"offerCount": count})
 
 
 # to update entryes automaticly when chnge on frontend
 @app.route('/api/userApplicationData/<int:id>', methods=['PUT'])
 def update_application(id):
-    if not current_user.is_authenticated:
-        return jsonify({"error","Unauthorized"}), 401
+    uid = get_firebase_uid()
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
     
-    app_row = UserJobData.query.filter_by(id=id, user_id=current_user.id).first()
+    app_row = UserJobData.query.filter_by(id=id, user_id=user.id).first()
 
     if not app_row:
         return jsonify({"error": "Not found or unauthorized"}), 404
@@ -143,64 +195,76 @@ def users():
 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-#  password rules 
-schema = PasswordValidator()
-schema \
-    .min(8) \
-    .max(100) \
-    .has().uppercase() \
-    .has().lowercase() \
-    .has().digits() \
-    .has().no().spaces()
+# we will connect the Gmail api. users need to connect their gmail first though 
+@app.route('/api/connect-gmail', methods=['GET'])
+def connect_gmail():
+    try:
+        run_gmail_scraper()
+        return jsonify({"message": "Gmail data retrieved successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-## creating the routing fro the signup
-@app.route('/api/signup', methods= ['POST'])
+# routing for the signup
+
+@app.route('/api/signup', methods=['POST'])
 def signup():
-    data= request.get_json()
-    name= data.get('name')
-    email= data.get('email')
-    password= data.get('password')
+    id_token = request.headers.get('Authorization')
+    if not id_token:
+        return jsonify({"error": "Missing token"}), 401
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists"}), 400
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        firebase_uid = decoded_token['uid']
 
-    if not schema.validate(password):
-        return jsonify({"error": "Password must be 8+ characters and include upper, lower, number, and no spaces"}), 400
+        # Check if user already exists
+        user = User.query.filter_by(firebase_uid=firebase_uid).first()
+        if not user:
+            user = User(firebase_uid=firebase_uid)
+            db.session.add(user)
+            db.session.commit()
 
-    hashed_pw = generate_password_hash(password, method="pbkdf2:sha256")
-    new_user = User(name=name, email=email, password=hashed_pw)
+        return jsonify({'message': 'Signup successful'}), 200
+    except Exception as e:
+        print(e)
+        return jsonify({'error': 'Invalid token'}), 401
+    
 
-    db.session.add(new_user)
-    db.session.commit()
-    login_user(new_user)
-    return jsonify({"message": "User created", "user_id": new_user.id}), 201
+## verifying auth
+@app.route('/api/authcheck', methods=['GET'])
+def checkauth():
+    id_token = request.headers.get('Authorization')
 
-## creating the routing fro the signup
+    if not id_token:
+        return jsonify({"authenticated": False, "error": "No token provided"}), 401
+
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        user_email = decoded_token['email']
+        print("✅ Verified Firebase user:", user_email)
+        return jsonify({"authenticated": True, "email": user_email}), 200
+    except Exception as e:
+        print("❌ Token verification failed:", e)
+        return jsonify({"authenticated": False, "error": str(e)}), 401
+    
+
+
+#sign out 
 @app.route('/api/signout', methods=['GET'])
 def signout():
-    logout_user()
-    return jsonify({"Message":"Logged out sucessfully"})
+    response = jsonify({"message": "Signed out successfully."})
+    response.set_cookie('session', '', expires=0)  # Clear any session cookie if you're using one
+    return response, 200
 
-    
-
-## creating the routing fro the login
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    email=data.get('email')
-    password= data.get('password')
-
-    user = User.query.filter_by(email=email).first()
-    
-    if not user or not check_password_hash(user.password, password):
-        return jsonify({"error": "invalid email or password"}), 401
-    
-    login_user(user)
-
-    return jsonify({"message": "Login successful", "user_id": user.id})
-
-
-
+def get_firebase_uid():
+    id_token = request.headers.get('Authorization')
+    if not id_token:
+        return None
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        return decoded_token['uid']
+    except Exception as e:
+        print("❌ Token verification failed:", e)
+        return None
 
 if __name__ == "__main__":
     app.run(debug=True, port=8080)

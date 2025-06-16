@@ -30,7 +30,13 @@ export default function StickyHeadTable({ onUpdateCounts }) {
     str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
   useEffect(() => {
-    axios.get('http://localhost:8080/api/userApplicationData')
+    const token = localStorage.getItem('token');
+    axios.get('http://localhost:8080/api/userApplicationData', {
+  headers: {
+    Authorization: token,
+  },
+  withCredentials: true,
+})
       .then((res) => {
         const normalized = res.data.map((r) => ({
           ...r,
@@ -44,11 +50,15 @@ export default function StickyHeadTable({ onUpdateCounts }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:8080/api/userApplicationData', {
-        company,
-        position,
-        status
-      });
+      const token = localStorage.getItem('token');
+const res = await axios.post(
+  'http://localhost:8080/api/userApplicationData',
+  { company, position, status },
+  {
+    headers: { Authorization: token },
+    withCredentials: true
+  }
+);
       setRows([...rows, { id: res.data.id, company, position, status }]);
     setCompany('');
     setPosition('');
@@ -65,7 +75,14 @@ export default function StickyHeadTable({ onUpdateCounts }) {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/api/userApplicationData/${id}`);
+      const token = localStorage.getItem('token');
+await axios.delete(
+  `http://localhost:8080/api/userApplicationData/${id}`,
+  {
+    headers: { Authorization: token },
+    withCredentials: true
+  }
+);
       setRows(rows.filter((r) => r.id !== id));
       if (onUpdateCounts) onUpdateCounts();
     } catch (err) {
@@ -78,7 +95,15 @@ export default function StickyHeadTable({ onUpdateCounts }) {
     updated[index][key] = value;
     setRows(updated);
     try {
-      await axios.put(`http://localhost:8080/api/userApplicationData/${updated[index].id}`, updated[index]);
+      const token = localStorage.getItem('token');
+await axios.put(
+  `http://localhost:8080/api/userApplicationData/${updated[index].id}`,
+  updated[index],
+  {
+    headers: { Authorization: token },
+    withCredentials: true
+  }
+);
       if (onUpdateCounts) onUpdateCounts();
     } catch (err) {
       console.error('Error saving edit:', err);
