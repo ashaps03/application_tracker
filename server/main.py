@@ -196,12 +196,16 @@ def users():
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 # we will connect the Gmail api. users need to connect their gmail first though 
-@app.route('/api/connect-gmail', methods=['GET'])
+@app.route('/api/connect-gmail', methods=['POST'])
 def connect_gmail():
     try:
-        run_gmail_scraper()
-        return jsonify({"message": "Gmail data retrieved successfully"}), 200
+        data = request.json
+        firebase_uid = data.get('uid')  # frontend must send { "uid": "..." }
+        print("Firebase UID:", firebase_uid)
+        applications = run_gmail_scraper(firebase_uid)
+        return jsonify({"applications": applications}), 200
     except Exception as e:
+        print("❌ ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
 
 # routing for the signup

@@ -1,1 +1,4 @@
 server/firebase-adminsdk.json
+server/gmail-credentials.json
+server/credentialsGmail.json
+server/tokens/*.pickle
