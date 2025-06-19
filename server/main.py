@@ -65,6 +65,9 @@ def get_applications():
     firebase_uid = get_firebase_uid()
     if not firebase_uid:
         return jsonify({"error": "Unauthorized"}), 401
+    
+    #automaticlly run code 
+    run_gmail_scraper(firebase_uid)
 
     user = User.query.filter_by(firebase_uid=firebase_uid).first()
     if not user:
