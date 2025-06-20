@@ -13,6 +13,7 @@ class UserJobData(db.Model):
     status: Mapped[str] = mapped_column(String(100), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
     user = relationship("User", back_populates="jobs")
+    
 
 class User(UserMixin, db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
