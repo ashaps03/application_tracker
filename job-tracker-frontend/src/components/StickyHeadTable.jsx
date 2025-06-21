@@ -141,6 +141,7 @@ await axios.put(
             </TableHead>
             <TableBody>
               {rows
+                .sort((a, b) => (a.company === "Unknown" ? -1 : b.company === "Unknown" ? 1 : 0))
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row, index) => {
                   const isEditing = editingRowId === row.id;

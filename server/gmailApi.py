@@ -10,23 +10,32 @@ from model import UserJobData, User
 from sqlalchemy import and_
 import base64
 from bs4 import BeautifulSoup
-
+from datetime import datetime  # Add this import at the top if not already there
+from DbCleaner import clean_db
 
 
 CREDENTIALS_FILE = 'credentialsGmail.json'
 
-def infer_status(subject):
+def infer_status(subject, snippet="", from_email=""):
     subj = subject.lower()
+    snip = snippet.lower()
+    sender = from_email.lower()
+
+    if "indeedapply@indeed.com" in sender:
+        return "Applied"
     if "interview" in subj:
         return "Interviewing"
     if "offer" in subj:
         return "Offer"
     if "unfortunately" in subj or "not selected" in subj:
         return "Rejected"
+    if "Unfortunately" in snip:
+        return "Rejected"
     return "Applied"
+
 PLATFORM_DOMAINS = [
     "gmail.com", "indeed.com", "bamboohr.com", "jobylon.com", "msg.jobylon.com",
-    "outlook.com", "yahoo.com", "google.com", "apple.com"
+    "outlook.com", "yahoo.com", "google.com", "apple.com", ""
 ]
 
 def clean_company_name(from_email, subject="", snippet="", payload=None):
@@ -71,6 +80,8 @@ def clean_company_name(from_email, subject="", snippet="", payload=None):
     if match:
         return match.group(1).strip()
 
+
+
     # Fallback to email domain
     email_match = re.search(r'@([a-zA-Z0-9.-]+)', from_email)
     if email_match:
@@ -88,6 +99,7 @@ def extract_position(subject_line, snippet=""):
     subject_line = subject_line.replace("RE:", "").replace("Re:", "").strip()
 
     patterns = [
+        r'Phone Interview[:\-]?\s*(.*)',  # ✅ Matches "Phone Interview: Staff Developer"
         r'application for (?:the )?(.*?)(?: position| job| at|$)',
         r'for the position of (.*?)(?: at|$)',
         r'confirmed for .*?\((.*?)\)',
@@ -124,6 +136,8 @@ def extract_position(subject_line, snippet=""):
             return _clean_position(match.group(1))
 
     return "Unknown"
+
+    
 
 
 def _clean_position(raw):
@@ -176,16 +190,21 @@ def run_gmail_scraper(firebase_uid=None):
     service = googleapiclient.discovery.build('gmail', 'v1', credentials=creds)
 
     query = (
-        '(subject:"job application" OR subject:"interview" '
+        '('
+        'subject:"job application" OR subject:"interview" '
+        'OR from:noreply@indeed.com '
         'OR "thank you for applying" OR "we received your application" '
-        'OR "next steps in your application" OR "application update" OR "invitation to interview") '
-        'OR from:indeedapply@indeed.com OR "thank you for applying") '
+        'OR "next steps in your application" OR "application update" '
+        'OR "invitation to interview" OR from:indeedapply@indeed.com'
+        ') '
         'newer_than:180d '
         '-from:forms-receipts-noreply@google.com '
         '-from:english-personalized-digest@quora.com '
         '-subject:(university OR college OR scholarship OR insurance OR enrollment OR loan OR tuition) '
-        '-from:reddit.com'
+        '-from:reddit.com '
+        '-from:yourfriends@e.sweetwater.com'
     )
+
 
     results = service.users().messages().list(userId='me', q=query, maxResults=30).execute()
     messages = results.get('messages', [])
@@ -220,10 +239,6 @@ def run_gmail_scraper(firebase_uid=None):
 
         date = next((h['value'] for h in headers if h['name'] == 'Date'), 'No Date')
 
-        company = clean_company_name(from_email, subject, snippet, msg_detail.get("payload"))
-        position = extract_position(subject, snippet)
-        status = infer_status(subject)
-
         # Filtering
         if any(ex in snippet.lower() for ex in [
             "university", "college", "scholarship", "loan", "insurance", "tuition",
@@ -233,11 +248,62 @@ def run_gmail_scraper(firebase_uid=None):
         ]) or any(ex in from_email.lower() for ex in [
             "quora", "newsletter", "reddit", "soundcloud", "sweetwater", "spotify",
             "youtube", "apple", "music", "video", "streaming", "playlist", "gear",
-            "visa", "articles"
+            "visa", "articles", "sweetwater"
         ]):
             print(f"🚫 Filtered out: {from_email} | {subject}")
 
             continue
+
+        company = clean_company_name(from_email, subject, snippet, msg_detail.get("payload"))
+        position = extract_position(subject, snippet)
+        status = infer_status(subject, snippet, from_email)
+
+
+            # ✅ START of duplicate/merge logic
+        first_word_company = company.split()[0].lower()
+
+        possible_duplicate = UserJobData.query.filter(
+            UserJobData.firebase_uid == firebase_uid,
+            UserJobData.company.ilike(f"{first_word_company}%"),
+        ).all()
+
+        skip_this = False
+
+        for entry in possible_duplicate:
+            if entry.status != status:
+                if position == "Unknown" or entry.position == position:
+        # Only update if not downgrading status
+                    downgrade = (
+                        (entry.status == "Interviewing" and status == "Applied") or
+                        (entry.status in ["Offer", "Rejected"] and status != entry.status) or
+                        (entry.status != "Applied" and status == "Applied")
+                    )
+
+                    if not downgrade:
+                        print(f"🔄 Updating status for {entry.company} - {entry.position} to: {status}")
+                        print(f"   └ 📧 Source email: {from_email}")
+                        print(f"   └ 🕒 Email Date Header: {date}")
+                        print(f"   └ 📄 Snippet: {snippet}")
+
+                        entry.status = status
+
+                        if entry.position == "Unknown" and position != "Unknown":
+                            entry.position = position
+                        if entry.company == "Unknown" and company != "Unknown":
+                            entry.company = company
+
+                        db.session.commit()
+                    else:
+                        print(f"⛔ Skipped status downgrade for {entry.company} - {entry.status} → {status}")
+                    skip_this = True
+                    break
+                
+
+        if skip_this:
+            continue
+            
+
+        
 
         dedup_string = f"{date.strip().lower()}|{company.strip().lower()}|{subject.strip().lower()}|{snippet.strip().lower()}"
         dedup_hash = hashlib.md5(dedup_string.encode('utf-8')).hexdigest()
@@ -245,6 +311,9 @@ def run_gmail_scraper(firebase_uid=None):
         if dedup_hash in seen_hashes:
             continue
         seen_hashes.add(dedup_hash)
+
+        if 'indeedapply@indeed.com' in from_email.lower():
+            print("📌 INDEED SNIPPET PREVIEW:", snippet)
 
         print(f"📨 Email: {company} | {position} | {status}")
 
@@ -280,4 +349,6 @@ def run_gmail_scraper(firebase_uid=None):
             print("=" * 80)
 
     print(f"\n💾 Total emails saved to DB (no duplicates): {saved_count}")
+    clean_db(firebase_uid)
+
     return []
