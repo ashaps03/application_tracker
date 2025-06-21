@@ -74,7 +74,7 @@ export default function LoginCard() {
           width: '100%',
           maxWidth: '400px',
           padding: '2rem',
-          background: 'white',
+          background: '#070d16',
           borderRadius: '12px',
           boxShadow: '0 8px 24px rgba(0,0,0,0.1)'
         }}

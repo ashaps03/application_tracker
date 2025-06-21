@@ -65,9 +65,7 @@ def get_applications():
     firebase_uid = get_firebase_uid()
     if not firebase_uid:
         return jsonify({"error": "Unauthorized"}), 401
-    
-    #automaticlly run code 
-    run_gmail_scraper(firebase_uid)
+
 
     user = User.query.filter_by(firebase_uid=firebase_uid).first()
     if not user:
@@ -253,7 +251,38 @@ def checkauth():
         print("❌ Token verification failed:", e)
         return jsonify({"authenticated": False, "error": str(e)}), 401
     
+import os
 
+@app.route('/api/gmail-status', methods=['GET'])
+def gmail_status():
+    uid = request.args.get('uid')
+    if not uid:
+        return jsonify({"connected": False, "error": "No UID provided"}), 400
+
+    # Example path — adjust based on how you store token files
+    token_path = f'tokens/{uid}_token.pickle'
+    
+    if os.path.exists(token_path):
+        return jsonify({"connected": True}), 200
+    else:
+        return jsonify({"connected": False}), 200
+
+
+@app.route('/api/disconnect-gmail', methods=['POST'])
+def disconnect_gmail():
+    data = request.json
+    uid = data.get('uid')
+    if not uid:
+        return jsonify({"error": "No UID provided"}), 400
+
+    token_path = f'tokens/{uid}_token.pickle'
+    try:
+        if os.path.exists(token_path):
+            os.remove(token_path)
+        return jsonify({"disconnected": True}), 200
+    except Exception as e:
+        print("❌ Error deleting Gmail token:", e)
+        return jsonify({"error": str(e)}), 500
 
 #sign out 
 @app.route('/api/signout', methods=['GET'])

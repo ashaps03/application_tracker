@@ -1,10 +1,9 @@
 import StickyHeadTable from '../components/StickyHeadTable';
 import AutoTopBoard, { fetchCounts } from '../components/AutoTopBoard';
-import SignOut from '../components/SignOut';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import ConnectGmail from '../components/ConnectToGmail';
+import PrimarySearchAppBar from '../components/Navbar'
 
 
 
@@ -46,10 +45,8 @@ export default function Dashboard() {
 
     return (
       <div className="center-screen">
-        <div>
-        <SignOut/>
-        <ConnectGmail/>
-        </div>
+        <PrimarySearchAppBar/>
+
         <h1>DASHBOARD</h1>
         <AutoTopBoard/>
         <div style={{ width: '80%' }}>

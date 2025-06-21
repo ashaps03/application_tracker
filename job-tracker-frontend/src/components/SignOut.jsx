@@ -8,12 +8,8 @@ export default function SignOut() {
 
   const handleSignOut = async () => {
     try {
-      // 🔥 Clear local token
       localStorage.removeItem('token');
-
-      // 🔥 Notify backend (optional but good)
       await axios.get('http://localhost:8080/api/signout');
-
       console.log('✅ Logged out successfully');
       navigate('/Login');
     } catch (error) {
@@ -23,8 +19,11 @@ export default function SignOut() {
   };
 
   return (
-    <div className="icon" onClick={handleSignOut} title="Sign Out" style={{ cursor: 'pointer' }}>
-      <i className="fas fa-sign-out-alt"></i>
+    <div className="sign-out-container" onClick={handleSignOut}>
+      <div className="sign-out-icon">
+        <i className="fas fa-sign-out-alt"></i>
+      </div>
+      <span className="sign-out-text">Sign out</span>
     </div>
   );
 }

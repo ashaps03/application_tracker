@@ -1,46 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 export default function ConnectGmail() {
   const [loading, setLoading] = useState(false);
   const [emails, setEmails] = useState([]);
   const [error, setError] = useState('');
+  const [connected, setConnected] = useState(false);
 
-  const handleConnect = async () => {
-    setLoading(true);
-    setError('');
-    setEmails([]);
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
 
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        setError('User not logged in.');
-        setLoading(false);
-        return;
-      }
-
-      const uid = user.uid;
-
-      const res = await axios.post('http://localhost:8080/api/connect-gmail', {
-        uid,
+    axios.get(`http://localhost:8080/api/gmail-status?uid=${user.uid}`)
+      .then(res => {
+        setConnected(res.data.connected);
+      })
+      .catch(err => {
+        console.error('Failed to check Gmail status:', err);
       });
+  }, []);
 
-      setEmails(res.data.applications || []);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to connect Gmail.');
-    } finally {
-      setLoading(false);
+  const handleToggle = async (e) => {
+    const checked = e.target.checked;
+    setConnected(checked);
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      setError('User not logged in.');
+      return;
+    }
+
+    const uid = user.uid;
+
+    if (checked) {
+      setLoading(true);
+      setError('');
+      setEmails([]);
+      try {
+        const res = await axios.post('http://localhost:8080/api/connect-gmail', { uid });
+        setEmails(res.data.applications || []);
+      } catch (err) {
+        console.error(err);
+        setError('Failed to connect Gmail.');
+        setConnected(false);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      try {
+        await axios.post('http://localhost:8080/api/disconnect-gmail', { uid });
+        setEmails([]);
+      } catch (err) {
+        console.error('Failed to disconnect Gmail:', err);
+        setError('Failed to disconnect Gmail.');
+        setConnected(true); // fallback
+      }
     }
   };
 
   return (
     <div>
-      <button onClick={handleConnect} disabled={loading}>
-        {loading ? 'Connecting...' : 'Connect Gmail to Fetch Applications'}
-      </button>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={connected}
+            onChange={handleToggle}
+            disabled={loading}
+          />
+        }
+        label={loading ? 'Connecting...' : 'Connect Gmail'}
+      />
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
